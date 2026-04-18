@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Abdomen Font Bidirectional Generator</title>
+<title>Universal Bidirectional Encoder</title>
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -15,6 +15,15 @@
   }
 
   h1 { margin-bottom: 10px; }
+
+  select {
+    margin: 5px;
+    padding: 8px;
+    background: #1a1a1a;
+    color: white;
+    border: 1px solid #333;
+    border-radius: 6px;
+  }
 
   textarea {
     width: 90%;
@@ -59,122 +68,156 @@
 
 <body>
 
-<h1>Abdomen Font Bidirectional</h1>
+<h1>Universal Bidirectional Encoder</h1>
 
-<textarea id="input" placeholder="Type normal OR abdomen text..."></textarea>
+<select id="mode">
+  <option value="abdomen">Abdomen</option>
+  <option value="morse">Morse Code</option>
+  <option value="base64">Base64</option>
+</select>
+
+<select id="direction">
+  <option value="auto">Auto (Abdomen & Morse)</option>
+  <option value="encode">Encode</option>
+  <option value="decode">Decode</option>
+</select>
+
+<textarea id="input" placeholder="Insert text"></textarea>
 
 <div class="output" id="output"></div>
 
 <button onclick="copyText()">Copy Output</button>
 
 <script>
-// forward map (a -> symbol)
+// ---------- ABDOMEN ----------
 const map = {
-  a: "0",
-  b: "θ",
-  c: "]",
-  d: "\\",
-  e: "<",
-  f: "∫",
-  g: "q",
-  h: "ϟ",
-  i: "⊂⊃",
-  j: "ʝ",
-  k: "☐",
-  l: "¿",
-  m: "V",
-  n: "·",
-  o: "X",
-  p: "△",
-  q: "—⌒",
-  r: "⌒",
-  s: "Ω",
-  t: "$",
-  u: "⊃",
-  v: "⩑",
-  w: "∧",
-  x: "⎾_",
-  y: "ʔ",
-  z: "ʍ"
+  a:"0", b:"θ", c:"]", d:"\\", e:"<", f:"∫", g:"q",
+  h:"ϟ", i:"⊂⊃", j:"ʝ", k:"☐", l:"¿", m:"V", n:"·",
+  o:"X", p:"△", q:"—⌒", r:"⌒", s:"Ω", t:"\\",
+  u:"⊃", v:"⩑", w:"∧", x:"⎾_", y:"ʔ", z:"ʍ"
 };
 
-// reverse map (symbol -> a)
 const reverseMap = {};
-for (const key in map) {
-  reverseMap[map[key]] = key;
+for (const k in map) reverseMap[map[k]] = k;
+const symbols = Object.keys(reverseMap).sort((a,b)=>b.length-a.length);
+
+function toTally(n){
+  n=parseInt(n);
+  if(n===0) return "0";
+  if(n>5) return n;
+  if(n===5) return "||||/";
+  return "|".repeat(n);
 }
 
-// multi-char symbols first (important for parsing)
-const symbols = Object.keys(reverseMap).sort((a, b) => b.length - a.length);
-
-// detect if text is abdomen-like
-function isAbdomen(text) {
-  return /[θ∫⊂⊃ϟΩ△⌒⩑ʝʍ⎾_·]/.test(text);
+function encodeAbdomen(text){
+  return text.toLowerCase().split(/\s+/).map(word =>
+    word.split("").map(ch=>{
+      if(/\d/.test(ch)) return toTally(ch);
+      return map[ch] ?? ch;
+    }).join(" ")
+  ).join(" ⟡ ");
 }
 
-// normal -> abdomen
-function encode(text) {
-  return text
-    .toLowerCase()
-    .split(/\s+/)
-    .map(word =>
-      word
-        .split("")
-        .map(ch => map[ch] ?? ch)
-        .join(" ")
-    )
-    .join(" / ");
+function decodeAbdomen(text){
+  return text.split(/\s*⟡\s*/).map(word=>{
+    return word.trim().split(/\s+/).map(part=>{
+      if(part==="||||/") return "5";
+      if(/^\|+$/.test(part)) return part.length;
+      let m=symbols.find(s=>s===part);
+      return reverseMap[m] ?? part;
+    }).join("");
+  }).join(" ");
 }
 
-// abdomen -> normal
-function decode(text) {
-  let words = text.split(/\s*\/\s*/);
-
-  return words
-    .map(word => {
-      let result = "";
-
-      let i = 0;
-      while (i < word.length) {
-        let matched = null;
-
-        for (let sym of symbols) {
-          if (word.slice(i, i + sym.length) === sym) {
-            matched = sym;
-            break;
-          }
-        }
-
-        if (matched) {
-          result += reverseMap[matched] ?? "";
-          i += matched.length;
-        } else if (word[i] !== " ") {
-          result += word[i];
-          i++;
-        } else {
-          i++;
-        }
-      }
-
-      return result;
-    })
-    .join(" ");
+function isAbdomen(text){
+  return /[θ∫⊂⊃ϟΩ△⌒⩑ʝʍ⎾_·|]/.test(text);
 }
 
+// ---------- MORSE ----------
+const morse = {
+  a:".-", b:"-...", c:"-.-.", d:"-..", e:".",
+  f:"..-.", g:"--.", h:"....", i:"..", j:".---",
+  k:"-.-", l:".-..", m:"--", n:"-.", o:"---",
+  p:".--.", q:"--.-", r:".-.", s:"...", t:"-",
+  u:"..-", v:"...-", w:".--", x:"-..-", y:"-.--", z:"--..",
+  1:".----",2:"..---",3:"...--",4:"....-",5:".....",
+  6:"-....",7:"--...",8:"---..",9:"----.",0:"-----"
+};
+
+const morseRev = {};
+for(const k in morse) morseRev[morse[k]] = k;
+
+function encodeMorse(text){
+  return text.toLowerCase().split(" ").map(w =>
+    w.split("").map(c=>morse[c]||c).join(" ")
+  ).join(" / ");
+}
+
+function decodeMorse(text){
+  return text.split(" / ").map(w =>
+    w.split(" ").map(c=>morseRev[c]||c).join("")
+  ).join(" ");
+}
+
+function isMorse(text){
+  return /^[.\-/\s]+$/.test(text);
+}
+
+// ---------- BASE64 ----------
+function encodeB64(text){
+  try {
+    return btoa(unescape(encodeURIComponent(text)));
+  } catch {
+    return "Encoding error";
+  }
+}
+
+function decodeB64(text){
+  try {
+    return decodeURIComponent(escape(atob(text)));
+  } catch {
+    return "Invalid Base64";
+  }
+}
+
+// ---------- MAIN ----------
 const input = document.getElementById("input");
 const output = document.getElementById("output");
+const mode = document.getElementById("mode");
+const direction = document.getElementById("direction");
 
-input.addEventListener("input", () => {
-  const text = input.value;
+input.addEventListener("input", update);
+mode.addEventListener("change", update);
+direction.addEventListener("change", update);
 
-  if (isAbdomen(text)) {
-    output.textContent = decode(text);
-  } else {
-    output.textContent = encode(text);
+function update(){
+  let text = input.value;
+  let m = mode.value;
+  let d = direction.value;
+
+  if(m==="abdomen"){
+    output.textContent =
+      (d==="decode" || (d==="auto" && isAbdomen(text)))
+      ? decodeAbdomen(text)
+      : encodeAbdomen(text);
   }
-});
 
-function copyText() {
+  else if(m==="morse"){
+    output.textContent =
+      (d==="decode" || (d==="auto" && isMorse(text)))
+      ? decodeMorse(text)
+      : encodeMorse(text);
+  }
+
+  else if(m==="base64"){
+    output.textContent =
+      (d==="decode")
+      ? decodeB64(text)
+      : encodeB64(text);
+  }
+}
+
+function copyText(){
   navigator.clipboard.writeText(output.textContent);
 }
 </script>
